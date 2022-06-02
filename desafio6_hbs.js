@@ -3,12 +3,20 @@
 const fs = require("fs");
 const express = require("express");
 const { engine } = require("express-handlebars");
-const app = express();
 const { Router } = express;
 const router = Router();
 const multer = require("multer");
 const storage = multer({ destinantion: "/upload" });
 const PORT = 8082;
+const app = express();
+
+const { Server: HttpServer } = require('http');
+const { Server: SocketServer } = require('socket.io');
+
+const messages = [];
+
+const httpServer = new HttpServer(app);
+const socketServer = new SocketServer(httpServer);
 
 // Check if the file exists
 let fileExists = fs.existsSync("NuevosProductosHBS.txt");
@@ -142,6 +150,16 @@ const productoSubido = storage.fields([
     subirProduct();
   });
 
-app.listen(PORT, () => {
+socketServer.on('connection', (socket) => {
+  socket.emit('messages', messages);
+
+  socket.on('new_message', (mensaje) => {
+    messages.push(mensaje);
+    socketServer.sockets.emit('messages', messages);
+  });
+
+});
+
+httpServer.listen(PORT, () => {
   console.log(`Corriendo server en el puerto ${PORT}!`);
 });
