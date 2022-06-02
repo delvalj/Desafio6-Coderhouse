@@ -3,12 +3,20 @@
 const fs = require("fs");
 const express = require("express");
 const { engine } = require("express-handlebars");
-const app = express();
 const { Router } = express;
 const router = Router();
 const multer = require("multer");
 const storage = multer({ destinantion: "/upload" });
 const PORT = 8082;
+const app = express();
+
+const { Server: HttpServer } = require('http');
+const { Server: SocketServer } = require('socket.io');
+
+const messages = [];
+
+const httpServer = new HttpServer(app);
+const socketServer = new SocketServer(httpServer);
 
 // Check if the file exists
 let fileExists = fs.existsSync("NuevosProductosHBS.txt");
@@ -103,13 +111,13 @@ app.set("views", "./hbs_views");
 app.set("view engine", "hbs");
 
 // Redirecciono al Formulario cuando la llamada es a la raiz
-app.get("/", function (req, res) {
-  // On getting the home route request,
-  // the user will be redirected to GFG website
-  res.redirect(`http://localhost:${PORT}/desafio6.html`);
-});
+// app.get("/", function (req, res) {
+//   // On getting the home route request,
+//   // the user will be redirected to GFG website
+//   res.redirect(`http://localhost:${PORT}/desafio6.html`);
+// });
 
-router.get("/productos", (req, res, next) => {
+app.get("/", (req, res, next) => {
   const mostrarProductos = async () => {
     const productos = new Contenedor("NuevosProductosHBS.txt");
     const showProductos = await productos.getAll();
@@ -122,7 +130,7 @@ const productoSubido = storage.fields([
     { title: "title", price: "price", thumbnail: "thumbnail" },
   ]);
 
-  router.post("/productos", productoSubido, async (req, res, next) => {
+  app.post("/", productoSubido, async (req, res, next) => {
     const subirProduct = async () => {
       let produc = new Contenedor("NuevosProductosHBS.txt");
       if (
@@ -135,13 +143,23 @@ const productoSubido = storage.fields([
         });
       } else {
         await produc.metodoSave(req.body);
-        res.redirect(`http://localhost:${PORT}/desafio6.html`);
+        res.redirect(`http://localhost:${PORT}`);
       }
       next();
     };
     subirProduct();
   });
 
-app.listen(PORT, () => {
+socketServer.on('connection', (socket) => {
+  socket.emit('messages', messages);
+
+  socket.on('new_message', (mensaje) => {
+    messages.push(mensaje);
+    socketServer.sockets.emit('messages', messages);
+  });
+
+});
+
+httpServer.listen(PORT, () => {
   console.log(`Corriendo server en el puerto ${PORT}!`);
 });
